@@ -4,5 +4,6 @@
   <Project Path="src/CalendarMcp.Core/CalendarMcp.Core.csproj" />
   <Project Path="src/CalendarMcp.StdioServer/CalendarMcp.StdioServer.csproj" />
   <Project Path="src/CalendarMcp.HttpServer/CalendarMcp.HttpServer.csproj" />
+  <Project Path="src/CalendarMcp.Reminders/CalendarMcp.Reminders.csproj" />
   <Project Path="src/CalendarMcp.Tests/CalendarMcp.Tests.csproj" />
 </Solution>

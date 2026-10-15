@@ -17,6 +17,7 @@ For first-time installation see [INSTALLATION.md](INSTALLATION.md). For account 
 - [Register with an MCP client](#register-with-an-mcp-client)
 - [Upgrade procedure](#upgrade-procedure)
 - [Rollback](#rollback)
+- [Reminders host](#reminders-host)
 - [Verification](#verification)
 - [Automating a Windows install](#automating-a-windows-install)
 - [Troubleshooting](#troubleshooting)
@@ -80,6 +81,13 @@ dotnet publish src/CalendarMcp.Cli/CalendarMcp.Cli.csproj \
   --runtime win-x64 \
   --self-contained true \
   --output ./publish/win-x64/cli
+
+# Telegram reminders host (optional, see REMINDERS.md)
+dotnet publish src/CalendarMcp.Reminders/CalendarMcp.Reminders.csproj \
+  --configuration Release \
+  --runtime win-x64 \
+  --self-contained true \
+  --output ./publish/win-x64/reminders
 ```
 
 Other runtimes use the same command with `--runtime linux-x64`, `--runtime osx-arm64`, or
@@ -96,11 +104,14 @@ A predictable layout keeps upgrades and rollbacks simple:
 C:\CalendarMcp\
   bin\          published output (replaced wholesale on upgrade)
   config\       appsettings.json — credentials, stays in place across upgrades
-  logs\         runtime logs
+  logs\         runtime logs and reminder state
 ```
 
 Point `CALENDAR_MCP_CONFIG` at the `config` directory. Keeping `config` outside `bin` means an
 upgrade never touches credentials.
+
+The reminders host, when installed, sits beside the server in `bin` and reads the same
+`config` directory. Its log and deduplication state go to `config\logs`.
 
 ## Configuration and secrets
 
@@ -206,6 +217,31 @@ If verification fails, stop the server processes, move the failed directory asid
 `bin.previous` back to `bin`, restart the client, and re-run verification. The `config` directory is
 untouched by both directions, so no credential changes are needed.
 
+## Reminders host
+
+`CalendarMcp.Reminders` is a second executable that watches one account's calendar and
+sends a morning digest and pre-meeting alerts to a Telegram chat, answering `/today`,
+`/tomorrow` and `/week` on request. It runs continuously — it answers commands rather
+than firing on a schedule — so it is installed as a per-user scheduled task, not as a
+server:
+
+```powershell
+.\Register-ScheduledTask.ps1 `
+  -Executable "C:\CalendarMcp\CalendarMcp.Reminders.exe" `
+  -ConfigDirectory "C:\CalendarMcp\config"
+
+Start-ScheduledTask -TaskName 'CalendarMcp.Reminders'
+```
+
+The task starts at logon, restarts on failure, and does not run while the session is
+locked. Remove it with `.\Unregister-ScheduledTask.ps1`, optionally passing
+`-ClearState` to drop the deduplication file. Both hosts read the same
+`appsettings.json`; the reminders host uses its `Notifications` section, and both are
+upgraded by swapping the publish directory as described above.
+
+See [REMINDERS.md](REMINDERS.md) for configuration, message formats, and the switches
+for dry runs and tests.
+
 ## Verification
 
 1. Accounts are visible:
@@ -269,3 +305,13 @@ is not locked out.
 **Password seems to break JSON quoting**
 Set it through the `ENC:`-prefixed DataProtection format described in
 [security.md](security.md) instead of embedding quotes or backslashes.
+
+**`appsettings.json` parses but no accounts are found**
+The file was saved with a byte-order mark. `System.Text.Json` rejects a UTF-8 BOM, so
+rewrite it without one — `Set-Content -Encoding UTF8` in Windows PowerShell 5.1 adds
+a BOM; use `[System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))`.
+
+**The reminders task registers but nothing runs**
+Task Scheduler rejects `ExecutionTimeLimit` expressed as `00:00:00`; the task XML needs the
+ISO-8601 form `PT0S`. `Register-ScheduledTask.ps1` uses the correct value and verifies that
+the task exists afterwards, so a failure is reported rather than swallowed.

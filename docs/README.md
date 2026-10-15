@@ -32,7 +32,8 @@ This documentation is organized into focused topics:
 - **[Installation](INSTALLATION.md)** - Install binaries or build from source, configure accounts, connect a client
 - **[Deployment](DEPLOYMENT.md)** - Self-contained publishing, install layout, upgrades, and rollbacks
 - **[Configuration](configuration.md)** - All configuration examples (accounts, router, telemetry)
-- **[Onboarding](onboarding.md)** - CLI tool usage and account setup workflow
+- [Onboarding](onboarding.md) - CLI tool usage and account setup workflow
+- **[Reminders](REMINDERS.md)** - Telegram digest, pre-meeting alerts, and calendar commands
 - **[Local Models](local-models.md)** - Recommended models for local routing with Ollama
 
 ### Provider Setup

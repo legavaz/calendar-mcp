@@ -214,6 +214,7 @@ See [docs/configuration.md](docs/configuration.md) for the full configuration re
 | Installation | [docs/INSTALLATION.md](docs/INSTALLATION.md) |
 | Deployment | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Pushing changes | [docs/PUSHING.md](docs/PUSHING.md) |
+| Reminders | [docs/REMINDERS.md](docs/REMINDERS.md) |
 | Architecture | [docs/architecture.md](docs/architecture.md) |
 | MCP Tools | [docs/mcp-tools.md](docs/mcp-tools.md) |
 | Providers | [docs/providers.md](docs/providers.md) |
