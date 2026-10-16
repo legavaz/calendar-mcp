@@ -854,6 +854,8 @@ public class GoogleProviderService : IGoogleProviderService
         string? body = null,
         string? timeZone = null,
         bool isAllDay = false,
+        bool isPrivate = false,
+        int? reminderMinutes = null,
         CancellationToken cancellationToken = default)
     {
         var credential = await GetCredentialAsync(accountId, cancellationToken);

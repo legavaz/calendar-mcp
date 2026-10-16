@@ -128,6 +128,18 @@ public class CalendarEvent
     /// Whether this is a recurring event
     /// </summary>
     public bool IsRecurring { get; init; }
+
+    /// <summary>
+    /// Whether the event is private: other attendees and other members of a shared
+    /// mailbox do not see its subject or body.
+    /// </summary>
+    public bool IsPrivate { get; init; }
+
+    /// <summary>
+    /// Minutes before the start at which a reminder fires, or null when the event
+    /// carries no reminder. Zero means a reminder at the moment it starts.
+    /// </summary>
+    public int? ReminderMinutes { get; init; }
     
     /// <summary>
     /// Recurrence pattern description (e.g., "Every weekday", "Weekly on Monday")

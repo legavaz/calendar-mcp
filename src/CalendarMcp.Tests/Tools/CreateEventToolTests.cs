@@ -27,7 +27,7 @@ public class CreateEventToolTests
         var provExp = new IProviderServiceCreateExpectations();
         provExp.Setups.CreateEventAsync(
             "acc-1", Arg.Any<string?>(), "Meeting", Arg.Any<DateTime>(), Arg.Any<DateTime>(),
-            Arg.Any<string?>(), Arg.Any<List<string>?>(), Arg.Any<string?>(), Arg.Any<string?>(), false, Arg.Any<CancellationToken>())
+            Arg.Any<string?>(), Arg.Any<List<string>?>(), Arg.Any<string?>(), Arg.Any<string?>(), false, false, Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .ReturnValue(Task.FromResult("new-event-id"));
 
         var factExp = new IProviderServiceFactoryCreateExpectations();
@@ -76,7 +76,7 @@ public class CreateEventToolTests
         var provExp = new IProviderServiceCreateExpectations();
         provExp.Setups.CreateEventAsync(
             "acc-1", Arg.Any<string?>(), "Meeting", Arg.Any<DateTime>(), Arg.Any<DateTime>(),
-            Arg.Any<string?>(), Arg.Any<List<string>?>(), Arg.Any<string?>(), Arg.Any<string?>(), false, Arg.Any<CancellationToken>())
+            Arg.Any<string?>(), Arg.Any<List<string>?>(), Arg.Any<string?>(), Arg.Any<string?>(), false, false, Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .ReturnValue(Task.FromResult("ev-id"));
 
         var factExp = new IProviderServiceFactoryCreateExpectations();
@@ -127,7 +127,7 @@ public class CreateEventToolTests
         var provExp = new IProviderServiceCreateExpectations();
         provExp.Setups.CreateEventAsync(
             "acc-1", Arg.Any<string?>(), "Offsite", new DateTime(2026, 10, 1), new DateTime(2026, 10, expectedEndDay),
-            Arg.Any<string?>(), Arg.Any<List<string>?>(), Arg.Any<string?>(), "America/Chicago", true, Arg.Any<CancellationToken>())
+            Arg.Any<string?>(), Arg.Any<List<string>?>(), Arg.Any<string?>(), "America/Chicago", true, false, Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .ReturnValue(Task.FromResult("all-day-id"));
 
         var factExp = new IProviderServiceFactoryCreateExpectations();

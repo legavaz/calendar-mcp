@@ -723,7 +723,8 @@ public class ImapProviderService : IImapProviderService, IAsyncDisposable, IDisp
     public Task<string> CreateEventAsync(
         string accountId, string? calendarId, string subject, DateTime start, DateTime end,
         string? location = null, List<string>? attendees = null, string? body = null,
-        string? timeZone = null, bool isAllDay = false, CancellationToken cancellationToken = default) =>
+        string? timeZone = null, bool isAllDay = false,
+        bool isPrivate = false, int? reminderMinutes = null, CancellationToken cancellationToken = default) =>
         throw Unsupported("calendar operations");
 
     public Task UpdateEventAsync(

@@ -27,7 +27,9 @@ public sealed class CreateEventTool(
         [Description("List of attendee email addresses")] List<string>? attendees = null,
         [Description("Event description/body")] string? body = null,
         [Description("IANA timezone name for the event (e.g. `America/Chicago`, `America/New_York`, `Europe/London`). Required to create events at the correct local time.")] string? timeZone = null,
-        [Description("True for an all-day event. start/end are then dates (yyyy-MM-dd, end exclusive) and any time of day is ignored.")] bool isAllDay = false)
+        [Description("True for an all-day event. start/end are then dates (yyyy-MM-dd, end exclusive) and any time of day is ignored.")] bool isAllDay = false,
+        [Description("Mark the event private so other attendees and other members of a shared mailbox cannot see its subject or body.")] bool isPrivate = false,
+        [Description("Minutes before the start at which a reminder fires, e.g. 1440 for a day before. 0 means at the moment it starts. Omit to leave it to the Outlook default.")] int? reminderMinutes = null)
     {
         // Strip CDATA wrappers if present (LLMs sometimes wrap content in XML CDATA)
         body = StripCdataWrapper(body);
@@ -63,7 +65,8 @@ public sealed class CreateEventTool(
             // Create event
             var provider = providerFactory.GetProvider(account.Provider);
             var eventId = await provider.CreateEventAsync(
-                account.Id, calendarId, subject, start, end, location, attendees, body, timeZone, isAllDay, CancellationToken.None);
+                account.Id, calendarId, subject, start, end, location, attendees, body, timeZone, isAllDay,
+                isPrivate, reminderMinutes, CancellationToken.None);
 
             var result = new
             {

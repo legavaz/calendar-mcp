@@ -465,6 +465,37 @@ Get events (past/present/future) for specific account or all accounts.
 }
 ```
 
+#### `get_calendar_event_details`
+Fetch one event with everything the provider knows about it, including the attendee list with
+per-person response status. Unlike `get_calendar_events`, this is where an organizer sees who
+was invited — the list view does not carry attendees.
+
+**Parameters**:
+- `accountId`: Specific account ID (required)
+- `calendarId`: Specific calendar ID (required)
+- `eventId`: Event ID from `get_calendar_events` (required)
+- `timeZone` (optional): IANA zone the local times are reported in
+
+**Returns** (abridged):
+```json
+{
+  "id": "evt-456",
+  "subject": "Review",
+  "start_local": "2026-10-15T14:00:00",
+  "isAllDay": false,
+  "isPrivate": false,
+  "sensitivity": "Normal",
+  "reminderMinutes": 15,
+  "attendees": ["a@example.com", "b@example.com"],
+  "attendeeDetails": [
+    { "email": "b@example.com", "responseStatus": "Accept", "type": "required" }
+  ]
+}
+```
+
+`isPrivate` and `reminderMinutes` are what `create_event` sets. On the EWS provider `reminderMinutes`
+is null when the event carries no reminder, and `isPrivate` reflects `Sensitivity=Private`.
+
 #### `find_available_times`
 Find free time slots across calendars. The on-prem Exchange provider checks the account owner's
 calendar and optionally calls EWS free/busy for the listed attendee mailboxes.
@@ -505,6 +536,12 @@ Create calendar event in specific calendar (requires explicit account selection 
 - `location` (optional): Event location
 - `attendees` (optional): Array of attendee emails
 - `body` (optional): Event description
+- `isAllDay` (default: false): All-day event; `start`/`end` are dates and `end` is exclusive
+- `isPrivate` (default: false): Mark the event private so other attendees and other members of
+  a shared mailbox cannot see its subject or body. On the EWS provider this maps to
+  `Sensitivity=Private`, which is what Outlook treats as private.
+- `reminderMinutes` (optional): Minutes before the start at which a reminder fires, e.g. `1440`
+  for a day ahead. `0` means at the moment it starts. Omit it to leave the Outlook default.
 
 **Returns**:
 ```json

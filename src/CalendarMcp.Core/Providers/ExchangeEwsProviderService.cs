@@ -304,22 +304,45 @@ var config = await ResolveConfigAsync(accountId);
         return item is null ? null : MapCalendarItem(item, accountId, true, config.Username);
     }
 
-    public async Task<string> CreateEventAsync(string accountId, string? calendarId, string subject, DateTime start, DateTime end,
+public async Task<string> CreateEventAsync(string accountId, string? calendarId, string subject, DateTime start, DateTime end,
         string? location = null, List<string>? attendees = null, string? body = null, string? timeZone = null,
-        bool isAllDay = false, CancellationToken cancellationToken = default)
+        bool isAllDay = false, bool isPrivate = false, int? reminderMinutes = null,
+        CancellationToken cancellationToken = default)
     {
         var tz = TimeZoneHelper.TryGetTimeZone(timeZone) ?? TimeZoneInfo.Utc;
         var item = new XElement(T + "CalendarItem",
-            new XElement(T + "Subject", subject),
-            new XElement(T + "Start", FormatEventTime(start, tz, isAllDay)),
-            new XElement(T + "End", FormatEventTime(end, tz, isAllDay)),
-            new XElement(T + "IsAllDayEvent", isAllDay ? "true" : "false"));
-        if (!string.IsNullOrWhiteSpace(location)) item.Add(new XElement(T + "Location", location));
+            new XElement(T + "Subject", subject));
+
+        // Schema order matters: Body, reminders, Sensitivity, then the times.
+        // Exchange 2019 rejects the whole item as ErrorInvalidRequest otherwise.
         if (!string.IsNullOrWhiteSpace(body)) item.Add(new XElement(T + "Body", new XAttribute("BodyType", "HTML"), body));
+
+        if (reminderMinutes.HasValue)
+        {
+            item.Add(new XElement(T + "ReminderIsSet", "true"));
+            item.Add(new XElement(T + "ReminderMinutesBeforeStart", Math.Clamp(reminderMinutes.Value, 0, 40320)
+                .ToString(CultureInfo.InvariantCulture)));
+        }
+
+        // Sensitivity is what Outlook honours as "private": other attendees and
+        // other members of a shared mailbox never see the subject. The separate
+        // t:Private element is accepted on write but not returned by this server.
+        if (isPrivate) item.Add(new XElement(T + "Sensitivity", "Private"));
+
+        item.Add(new XElement(T + "Start", FormatEventTime(start, tz, isAllDay)));
+        item.Add(new XElement(T + "End", FormatEventTime(end, tz, isAllDay)));
+
+        if (!string.IsNullOrWhiteSpace(location)) item.Add(new XElement(T + "Location", location));
         var attendeeSet = BuildAttendees(attendees);
         if (attendeeSet is not null) item.Add(attendeeSet);
+        item.Add(new XElement(T + "IsAllDayEvent", isAllDay ? "true" : "false"));
 
-        var create = new XElement(M + "CreateItem", new XAttribute("MessageDisposition", "Send"), new XAttribute("SendMeetingInvitations", "SendToAllAndSaveCopy"),
+        // An event without attendees must still declare how to handle invitations;
+        // omitting the attribute is ErrorSendMeetingInvitationsRequired.
+        var hasAttendees = attendeeSet is not null;
+        var create = new XElement(M + "CreateItem",
+            new XAttribute("MessageDisposition", "Send"),
+            new XAttribute("SendMeetingInvitations", hasAttendees ? "SendToAllAndSaveCopy" : "SendToNone"),
             new XElement(M + "SavedItemFolderId", new XElement(T + "DistinguishedFolderId", new XAttribute("Id", "calendar"))),
             new XElement(M + "Items", item));
         var doc = await SendAsync(accountId, create, cancellationToken);
@@ -422,7 +445,7 @@ var config = await ResolveConfigAsync(accountId);
         new XElement(T + "AdditionalProperties", Field("item:Subject"), Field("item:DateTimeReceived"), Field("message:From"), Field("message:ToRecipients"), Field("message:CcRecipients"), Field("message:IsRead"), Field("item:HasAttachments")));
 
     private static XElement CalendarItemShape(bool details) => new(M + "ItemShape", new XElement(T + "BaseShape", details ? "Default" : "IdOnly"),
-        new XElement(T + "AdditionalProperties", Field("item:Subject"), Field("calendar:Start"), Field("calendar:End"), Field("calendar:Location"), Field("calendar:IsAllDayEvent"), Field("calendar:LegacyFreeBusyStatus"), Field("calendar:IsRecurring"), Field("calendar:Organizer"), Field("calendar:RequiredAttendees"), Field("calendar:OptionalAttendees"), Field("calendar:IsCancelled"), Field("item:DateTimeCreated"), Field("item:LastModifiedTime"),
+        new XElement(T + "AdditionalProperties", Field("item:Subject"), Field("calendar:Start"), Field("calendar:End"), Field("calendar:Location"), Field("calendar:IsAllDayEvent"), Field("calendar:LegacyFreeBusyStatus"), Field("calendar:IsRecurring"), Field("calendar:Organizer"), Field("calendar:RequiredAttendees"), Field("calendar:OptionalAttendees"), Field("calendar:IsCancelled"), Field("item:ReminderIsSet"), Field("item:ReminderMinutesBeforeStart"), Field("item:Sensitivity"), Field("item:DateTimeCreated"), Field("item:LastModifiedTime"),
             details ? Field("item:Body") : null,
             details ? Field("item:Attachments") : null));
 
@@ -518,6 +541,12 @@ var config = await ResolveConfigAsync(accountId);
             ShowAs = CalendarBusyStatus(Child(item, "LegacyFreeBusyStatus")),
             IsCancelled = string.Equals(Child(item, "IsCancelled"), "true", StringComparison.OrdinalIgnoreCase),
             IsRecurring = string.Equals(Child(item, "IsRecurring"), "true", StringComparison.OrdinalIgnoreCase),
+            Sensitivity = Child(item, "Sensitivity"),
+            IsPrivate = string.Equals(Child(item, "Sensitivity"), "Private", StringComparison.OrdinalIgnoreCase),
+            ReminderMinutes = string.Equals(Child(item, "ReminderIsSet"), "true", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(Child(item, "ReminderMinutesBeforeStart"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var reminderMinutes)
+                    ? reminderMinutes
+                    : null,
             IsOnlineMeeting = zoom.Success,
             OnlineMeetingUrl = zoom.Success ? zoom.Value : null,
             OnlineMeetingProvider = zoom.Success ? "zoom" : null,

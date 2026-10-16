@@ -90,6 +90,8 @@ public sealed class GetCalendarEventDetailsTool(
                 onlineMeetingUrl = evt.OnlineMeetingUrl,
                 onlineMeetingProvider = evt.OnlineMeetingProvider,
                 isRecurring = evt.IsRecurring,
+                isPrivate = evt.IsPrivate,
+                reminderMinutes = evt.ReminderMinutes,
                 recurrencePattern = evt.RecurrencePattern,
                 categories = evt.Categories,
                 importance = evt.Importance,

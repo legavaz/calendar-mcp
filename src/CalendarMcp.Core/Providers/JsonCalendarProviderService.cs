@@ -481,7 +481,8 @@ public class JsonCalendarProviderService : IJsonCalendarProviderService
         string accountId, string? calendarId, string subject,
         DateTime start, DateTime end, string? location = null,
         List<string>? attendees = null, string? body = null,
-        string? timeZone = null, bool isAllDay = false, CancellationToken cancellationToken = default)
+        string? timeZone = null, bool isAllDay = false,
+        bool isPrivate = false, int? reminderMinutes = null, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("JSON calendar provider is read-only.");
 
     public Task UpdateEventAsync(
