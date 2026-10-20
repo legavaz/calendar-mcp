@@ -173,7 +173,8 @@ public sealed class ExchangeEwsProviderService : IExchangeProviderService
             new XElement(M + "ItemShape",
                 new XElement(T + "BaseShape", "Default"),
                 new XElement(T + "BodyType", "HTML"),
-                new XElement(T + "AdditionalProperties",
+new XElement(T + "AdditionalProperties",
+                    Field("item:Subject"), Field("item:DateTimeReceived"), Field("message:From"),
                     Field("item:Body"), Field("message:IsRead"), Field("item:HasAttachments"),
                     Field("item:Attachments"), Field("message:ToRecipients"), Field("message:CcRecipients"))),
             new XElement(M + "ItemIds", new XElement(T + "ItemId", new XAttribute("Id", itemId))));
