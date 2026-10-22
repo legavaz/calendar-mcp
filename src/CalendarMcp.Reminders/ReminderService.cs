@@ -22,6 +22,14 @@ public sealed class ReminderService
     private DateTimeOffset _cacheWindowStart = DateTimeOffset.MinValue;
     private bool _cacheLoaded;
 
+    private DateTimeOffset _lastHeartbeatAt = DateTimeOffset.MinValue;
+    private int _completedPasses;
+
+    // Silence is indistinguishable from a stuck host, so the digest decision is
+    // logged once per day and reason instead of on every tick.
+    private DateOnly? _digestLoggedFor;
+    private string? _digestLoggedReason;
+
     public ReminderService(
         ReminderOptions options,
         IMeetingSource source,
@@ -60,7 +68,41 @@ public sealed class ReminderService
         var sent = 0;
         sent += await TrySendDigestAsync(now, dryRun, cancellationToken);
         sent += await TrySendRemindersAsync(now, dryRun, cancellationToken);
+
+        _completedPasses++;
+        await LogHeartbeatAsync(now, cancellationToken);
         return sent;
+    }
+
+    /// <summary>
+    /// Writes one line an hour proving the loop is still turning. Without it an
+    /// empty calendar and a wedged process look exactly the same in the log.
+    /// </summary>
+    private async Task LogHeartbeatAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (now - _lastHeartbeatAt < TimeSpan.FromHours(1)) return;
+
+        _lastHeartbeatAt = now;
+        _logger.LogInformation(
+            "Reminder host alive: {Passes} passes, {Meetings} meetings cached, digest today: {Digest}",
+            _completedPasses, _cache.Count, await DescribeDigestStateAsync(now, cancellationToken));
+    }
+
+    /// <summary>
+    /// Short status of today's digest, used by the heartbeat line. The state file is
+    /// consulted rather than the in-memory flag, so a restart does not report
+    /// "pending" for a day whose digest already went out.
+    /// </summary>
+    private async Task<string> DescribeDigestStateAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (!_options.Digest.Enabled) return "disabled";
+
+        var local = TimeZoneInfo.ConvertTime(now, _zone);
+        if (local.TimeOfDay > _options.Digest.Cutoff) return "window closed";
+        if (local.TimeOfDay < _options.Digest.Time) return "scheduled";
+
+        var today = DateOnly.FromDateTime(local.DateTime);
+        return await _state.IsDigestSentAsync(today, cancellationToken) ? "sent" : "pending";
     }
 
     /// <summary>Refreshes the cached meeting list when it has gone stale.</summary>
@@ -100,8 +142,8 @@ public sealed class ReminderService
 
     /// <summary>
     /// Sends the morning digest once per day, after <see cref="DigestOptions.Time"/>
-    /// and before <see cref="DigestOptions.Cutoff"/>. A day with no meetings is not
-    /// marked as sent, so a meeting added later in the day still produces a digest.
+    /// and before <see cref="DigestOptions.Cutoff"/>. A day with no meetings still
+    /// gets a short "nothing today" message: silence would look like a broken host.
     /// </summary>
     private async Task<int> TrySendDigestAsync(DateTimeOffset now, bool dryRun, CancellationToken cancellationToken)
     {
@@ -111,14 +153,24 @@ public sealed class ReminderService
         var today = DateOnly.FromDateTime(local.DateTime);
 
         if (local.TimeOfDay < _options.Digest.Time) return 0;
-        if (local.TimeOfDay > _options.Digest.Cutoff) return 0;
+        if (local.TimeOfDay > _options.Digest.Cutoff)
+        {
+            LogDigestDecision(today, "window closed");
+            return 0;
+        }
+
         if (await _state.IsDigestSentAsync(today, cancellationToken)) return 0;
 
         var meetings = MeetingSelection.ForPeriod(
             _cache, MeetingPeriod.Today, local, _zone, _source.OwnEmail);
-        if (meetings.Count == 0) return 0;
 
-        var message = _formatter.FormatToday(meetings, today);
+        // A day without meetings still produces a message. Silence would be
+        // indistinguishable from a host that stopped working, which is exactly how
+        // an empty day used to be reported as a broken bot.
+        var message = meetings.Count == 0
+            ? TelegramCommandService.NoMeetingsText(MeetingPeriod.Today, today)
+            : _formatter.FormatToday(meetings, today);
+
         if (dryRun)
         {
             _logger.LogInformation("[dry-run] digest for {Date}:\n{Message}", today, message);
@@ -127,10 +179,26 @@ public sealed class ReminderService
         {
             await _notifier.SendAsync(message, cancellationToken);
             await _state.MarkDigestSentAsync(today, cancellationToken);
+            _digestLoggedFor = today;
+            _digestLoggedReason = "sent";
             _logger.LogInformation("Sent morning digest for {Date} ({Count} meetings)", today, meetings.Count);
         }
 
         return 1;
+    }
+
+    /// <summary>
+    /// Records why the digest was not sent, once per day and reason. Previously an
+    /// empty day produced no log line at all, which reads exactly like a host that
+    /// stopped working.
+    /// </summary>
+    private void LogDigestDecision(DateOnly today, string reason)
+    {
+        if (_digestLoggedFor == today && _digestLoggedReason == reason) return;
+
+        _digestLoggedFor = today;
+        _digestLoggedReason = reason;
+        _logger.LogInformation("Digest for {Date} not sent: {Reason}", today, reason);
     }
 
     /// <summary>

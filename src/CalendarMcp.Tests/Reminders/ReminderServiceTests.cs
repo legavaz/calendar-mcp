@@ -144,15 +144,20 @@ public class ReminderServiceTests
     }
 
     [TestMethod]
-    public async Task Digest_EmptyDay_SendsNothingAndStaysUnmarked()
+    public async Task Digest_EmptyDay_StillSendsAMessageAndMarksTheDay()
     {
         var (service, notifier, store) = Create([]);
         await store.LoadAsync();
 
         var sent = await service.RunPassAsync(At(15, 9, 0).ToUniversalTime());
 
-        Assert.AreEqual(0, sent);
-        Assert.IsFalse(await store.IsDigestSentAsync(new DateOnly(2026, 10, 15)), "an empty day must stay retryable");
+        Assert.AreEqual(1, sent, "an empty day still confirms itself, so silence means trouble");
+        Assert.AreEqual(1, notifier.Sent.Count);
+        StringAssert.Contains(notifier.Sent[0], "встреч нет");
+        Assert.IsTrue(await store.IsDigestSentAsync(new DateOnly(2026, 10, 15)));
+
+        var again = await service.RunPassAsync(At(15, 10, 0).ToUniversalTime());
+        Assert.AreEqual(0, again, "the empty digest must not repeat");
     }
 
     [TestMethod]

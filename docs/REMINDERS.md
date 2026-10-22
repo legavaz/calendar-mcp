@@ -3,7 +3,8 @@
 A separate host, `CalendarMcp.Reminders`, watches one account's calendar and sends
 meeting information to a Telegram chat. It covers three things:
 
-- a **morning digest** with every remaining meeting of the day,
+- a **morning digest** with every remaining meeting of the day — or a short
+  "nothing today" note, so silence always means something is wrong,
 - **alerts before each meeting**, at the lead times you configure,
 - **on-demand answers** to `/today`, `/tomorrow` and `/week`.
 
@@ -96,17 +97,24 @@ with a mode that actually produces messages, so use it with `--once` or
 
 ## Logs
 
-The host writes to `config\logs\reminders-yyyyMMdd.log` and keeps the current
-and previous days. It also writes to the console, but a task-launched instance
-runs hidden, so the file is where you look after the fact:
+The host writes one file per day, `config\logs\reminders-yyyyMMdd.log`, and keeps
+the current and previous days. It also writes to the console, but a task-launched
+instance runs hidden, so the file is where you look after the fact:
 
 ```
 2026-10-15 08:30:01.114 +03:00 [Information] CalendarMcp.Reminders: Sent morning digest for 2026-10-15 (4 meetings)
+2026-10-22 09:51:26.031 +03:00 [Information] CalendarMcp.Reminders: Sent morning digest for 2026-10-22 (0 meetings)
+2026-10-22 09:51:26.034 +03:00 [Information] CalendarMcp.Reminders: Reminder host alive: 1 passes, 9 meetings cached, digest today: sent
 ```
 
 `System.Net.Http.HttpClient` is filtered out unless `--verbose` is passed: with a
 calendar poll and a command long-poll in the loop, one line per request buries
 everything else.
+
+An hourly `Reminder host alive` line exists so that a quiet day cannot be mistaken
+for a stalled process: it reports how many passes have completed and what happened
+to today's digest. The digest decision is also logged once when it is skipped —
+`window closed` after the cutoff — so a missing message always has a stated reason.
 
 ## Running it at login
 

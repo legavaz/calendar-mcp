@@ -11,18 +11,30 @@ namespace CalendarMcp.Reminders.Logging;
 /// </summary>
 public sealed class FileLoggerProvider : ILoggerProvider
 {
-    private readonly string _path;
+    private readonly string _directory;
+    private readonly string _prefix;
     private readonly LogLevel _minimumLevel;
     private readonly Lock _gate = new();
 
-    public FileLoggerProvider(string path, LogLevel minimumLevel)
+    /// <param name="directory">Directory that receives one file per day.</param>
+    /// <param name="prefix">File name prefix, e.g. <c>reminders</c>.</param>
+    /// <param name="minimumLevel">Lowest level written.</param>
+    public FileLoggerProvider(string directory, string prefix, LogLevel minimumLevel)
     {
-        _path = path;
+        _directory = directory;
+        _prefix = prefix;
         _minimumLevel = minimumLevel;
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        Directory.CreateDirectory(directory);
     }
+
+    /// <summary>
+    /// File for a given day. The name is resolved per write rather than once at
+    /// startup: a host that runs for weeks would otherwise keep appending to the
+    /// file from the day it started, hiding recent activity from anyone looking
+    /// for today's file.
+    /// </summary>
+    public string PathFor(DateOnly day) =>
+        Path.Combine(_directory, $"{_prefix}-{day:yyyyMMdd}.log");
 
     public ILogger CreateLogger(string categoryName) => new FileLogger(this, categoryName);
 
@@ -34,7 +46,8 @@ public sealed class FileLoggerProvider : ILoggerProvider
     {
         lock (_gate)
         {
-            File.AppendAllText(_path, line + Environment.NewLine, Encoding.UTF8);
+            Directory.CreateDirectory(_directory);
+            File.AppendAllText(PathFor(DateOnly.FromDateTime(DateTime.Now)), line + Environment.NewLine, Encoding.UTF8);
         }
     }
 

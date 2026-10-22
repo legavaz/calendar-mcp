@@ -23,7 +23,8 @@ var options = ReminderOptions.Load(configDirectory);
 // One provider instance feeds both the startup logger and the DI logging, so the
 // console and the log file always tell the same story.
 var fileLogger = new FileLoggerProvider(
-    Path.Combine(configDirectory, "logs", $"reminders-{DateTime.Now:yyyyMMdd}.log"),
+    Path.Combine(configDirectory, "logs"),
+    "reminders",
     commandLine.Verbose ? LogLevel.Debug : LogLevel.Information);
 
 using var loggerFactory = LoggerFactory.Create(builder =>
