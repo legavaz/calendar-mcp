@@ -542,7 +542,7 @@ public async Task<string> CreateEventAsync(string accountId, string? calendarId,
             ShowAs = CalendarBusyStatus(Child(item, "LegacyFreeBusyStatus")),
             IsCancelled = string.Equals(Child(item, "IsCancelled"), "true", StringComparison.OrdinalIgnoreCase),
             IsRecurring = string.Equals(Child(item, "IsRecurring"), "true", StringComparison.OrdinalIgnoreCase),
-            Sensitivity = Child(item, "Sensitivity"),
+            Sensitivity = Child(item, "Sensitivity") ?? "normal",
             IsPrivate = string.Equals(Child(item, "Sensitivity"), "Private", StringComparison.OrdinalIgnoreCase),
             ReminderMinutes = string.Equals(Child(item, "ReminderIsSet"), "true", StringComparison.OrdinalIgnoreCase)
                 && int.TryParse(Child(item, "ReminderMinutesBeforeStart"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var reminderMinutes)
