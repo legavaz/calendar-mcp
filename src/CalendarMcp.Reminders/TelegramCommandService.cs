@@ -85,20 +85,31 @@ public sealed class TelegramCommandService
     {
         if (!string.Equals(update.ChatId, _options.Telegram.ChatId, StringComparison.Ordinal))
         {
-            _logger.LogDebug("Ignoring command from chat {ChatId}", update.ChatId);
+            // A message from a chat the bot was not configured for is worth seeing:
+            // it either means somebody found the bot, or the configured chat id is
+            // wrong and the owner gets no answers.
+            _logger.LogWarning(
+                "Ignoring message from chat {ChatId}; configured chat is {ConfiguredChatId}",
+                update.ChatId, _options.Telegram.ChatId);
             return;
         }
 
         if (!CommandInterpreter.TryParse(update.Text, out var period))
         {
+            _logger.LogInformation("Unrecognised message from chat {ChatId}; sending help", update.ChatId);
             await _notifier.SendAsync(CommandInterpreter.HelpText, cancellationToken);
             return;
         }
 
-        foreach (var message in await BuildReplyAsync(period, now, cancellationToken))
+        var messages = await BuildReplyAsync(period, now, cancellationToken);
+        foreach (var message in messages)
         {
             await _notifier.SendAsync(message, cancellationToken);
         }
+
+        _logger.LogInformation(
+            "Answered {Period} request from chat {ChatId} with {Count} message(s)",
+            period, update.ChatId, messages.Count);
     }
 
     /// <summary>
